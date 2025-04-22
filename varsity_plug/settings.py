@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Load environment variables from .env file
 load_dotenv()
@@ -9,16 +10,35 @@ load_dotenv()
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Security key
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-fallback-secret-key')
+# Security key (use Render's environment variables)
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', os.getenv('RENDER_GENERATE_SECRET_KEY', 'django-insecure-fallback-key'))
 
-# Debug mode (turn off in production)
-DEBUG = True
+# Debug mode (always False in production)
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Allowed hosts
+RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.extend([
+        RENDER_EXTERNAL_HOSTNAME,
+        'varsity-plug-app.onrender.com'  # Your Render app URL
+    ])
 
-# Installed apps
+# Security headers
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+
+# Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -26,12 +46,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'helper.apps.HelperConfig',  # your app config
+    'whitenoise.runserver_nostatic',
+    'helper.apps.HelperConfig',
 ]
 
-# Middleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -40,7 +61,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# URLs and WSGI
 ROOT_URLCONF = 'varsity_plug.urls'
 WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 
@@ -48,29 +68,32 @@ WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # Add BASE_DIR / 'templates' if needed
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                'django.template.context_processors.media',  # ✅ Added
+                'django.template.context_processors.media',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
             'libraries': {
-                'helper_tags': 'helper.templatetags.helper_tags',  # Register helper_tags
+                'helper_tags': 'helper.templatetags.helper_tags',
             },
         },
     },
 ]
 
-# Database
+# Database configuration
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://varsity_plug_db_user:1dOGthjtnXPsff38kIdMtw4vM2NF1OUa@dpg-d033gnadbo4c73c8f1i0-a.oregon-postgres.render.com/varsity_plug_db')
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=not DEBUG
+    )
 }
 
 # Password validation
@@ -87,26 +110,22 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
-STATIC_URL = 'static/'
+# Static files (WhiteNoise)
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files (for file uploads)
+# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
+# Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Authentication redirects
+# Authentication
 LOGIN_REDIRECT_URL = 'redirect_after_login'
 LOGOUT_REDIRECT_URL = '/'
 
-# Production security settings (adjust if deploying)
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SECURE_HSTS_SECONDS = 0
-
-# OpenAI API Key (from .env)
+# Custom settings
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
