@@ -1,4 +1,3 @@
-# varsity_plug/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,7 +21,7 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.extend([
         RENDER_EXTERNAL_HOSTNAME,
-        'varsity-plug-app.onrender.com'  # Your Render app URL
+        'varsityplugapp.onrender.com'  # Updated Render app URL
     ])
 
 # Security headers
@@ -113,7 +112,7 @@ USE_TZ = True
 # Static files (WhiteNoise)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
