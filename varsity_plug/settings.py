@@ -1,7 +1,3 @@
-"""
-Django settings for varsity_plug project.
-"""
-
 import os
 from pathlib import Path
 import dj_database_url
@@ -91,6 +87,14 @@ DATABASES = {
         conn_health_checks=True,
         ssl_require=not DEBUG
     )
+}
+
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'my_cache_table',
+    }
 }
 
 # Password validation
