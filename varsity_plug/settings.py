@@ -1,28 +1,35 @@
 import os
 from pathlib import Path
 import dj_database_url
+import django_redis.cache
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Security
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-key')
+# Security - Get from environment variables
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+if not SECRET_KEY and DEBUG:
+    SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development only
 
-# Debug mode (False in production)
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+# Debug mode - Disabled in production by default
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-# Allowed hosts
-ALLOWED_HOSTS = ['varsityplugapp.onrender.com', 'localhost', '127.0.0.1']
+# Hosts configuration
+ALLOWED_HOSTS = [
+    'varsityplugapp.onrender.com', 
+    'localhost',
+    '127.0.0.1'
+]
 
-# CSRF trusted origins
+# Security settings
 CSRF_TRUSTED_ORIGINS = ['https://varsityplugapp.onrender.com']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Security headers
 if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
+    # Production security settings
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -38,8 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'whitenoise.runserver_nostatic',
-    'helper',
+    'whitenoise.runserver_nostatic',  # WhiteNoise for static files
+    'helper',  # Your custom app
     'django_ratelimit',
 ]
 
@@ -61,13 +68,12 @@ WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],  # Add global templates directory
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                'django.template.context_processors.media',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -78,24 +84,40 @@ TEMPLATES = [
     },
 ]
 
-# Database
-DATABASE_URL = os.getenv('DATABASE_URL')
+# Database - Using Render PostgreSQL
 DATABASES = {
     'default': dj_database_url.config(
-        default=DATABASE_URL,
+        default=os.getenv('DATABASE_URL'),
         conn_max_age=600,
         conn_health_checks=True,
         ssl_require=not DEBUG
     )
 }
 
-# Cache configuration
+# Redis Cache Configuration for Render
+REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d058a7q4d50c73ai7r00:6379')
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'my_cache_table',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,  # Prevents cache issues from crashing app
+            "SOCKET_CONNECT_TIMEOUT": 5,  # seconds
+            "SOCKET_TIMEOUT": 5,  # seconds
+        },
+        "KEY_PREFIX": "varsityplug"
     }
 }
+
+# Session configuration - using Redis
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
+
+# django-ratelimit configuration
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_CACHE_PREFIX = 'rl_'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -127,38 +149,54 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Authentication
 LOGIN_REDIRECT_URL = 'helper:redirect_after_login'
 LOGOUT_REDIRECT_URL = '/'
+LOGIN_URL = '/login/'  # Customize if you have a specific login URL
 
 # Custom settings
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# Message tags for styling in base.html
+# Message tags for styling
 MESSAGE_TAGS = {
-    'debug': 'debug',
-    'info': 'info',
-    'success': 'success',
-    'warning': 'warning',
-    'error': 'error',
+    10: 'debug',
+    20: 'info',
+    25: 'success',
+    30: 'warning',
+    40: 'error',
 }
 
 # Logging configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': True,
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
         'helper': {
             'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': True,
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+        'django_ratelimit': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
         },
     },
 }
+
+# WhiteNoise compression and caching
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_MANIFEST_STRICT = False
