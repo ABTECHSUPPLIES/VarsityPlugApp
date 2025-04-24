@@ -1,28 +1,25 @@
+"""
+Django settings for varsity_plug project.
+"""
+
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 import dj_database_url
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Security key (use Render's environment variables)
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', os.getenv('RENDER_GENERATE_SECRET_KEY', 'django-insecure-fallback-key'))
+# Security
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-key')
 
-# Debug mode (always False in production)
+# Debug mode (False in production)
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Allowed hosts
-RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.extend([
-        RENDER_EXTERNAL_HOSTNAME,
-        'varsityplugapp.onrender.com'  # Updated Render app URL
-    ])
+ALLOWED_HOSTS = ['varsityplugapp.onrender.com', 'localhost', '127.0.0.1']
+
+# CSRF trusted origins
+CSRF_TRUSTED_ORIGINS = ['https://varsityplugapp.onrender.com']
 
 # Security headers
 if not DEBUG:
@@ -46,7 +43,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'whitenoise.runserver_nostatic',
-    'helper.apps.HelperConfig',
+    'helper',
+    'django_ratelimit',
 ]
 
 MIDDLEWARE = [
@@ -84,8 +82,8 @@ TEMPLATES = [
     },
 ]
 
-# Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://varsity_plug_db_user:1dOGthjtnXPsff38kIdMtw4vM2NF1OUa@dpg-d033gnadbo4c73c8f1i0-a.oregon-postgres.render.com/varsity_plug_db')
+# Database
+DATABASE_URL = os.getenv('DATABASE_URL')
 DATABASES = {
     'default': dj_database_url.config(
         default=DATABASE_URL,
@@ -123,8 +121,40 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Authentication
-LOGIN_REDIRECT_URL = 'redirect_after_login'
+LOGIN_REDIRECT_URL = 'helper:redirect_after_login'
 LOGOUT_REDIRECT_URL = '/'
 
 # Custom settings
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# Message tags for styling in base.html
+MESSAGE_TAGS = {
+    'debug': 'debug',
+    'info': 'info',
+    'success': 'success',
+    'warning': 'warning',
+    'error': 'error',
+}
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+        'helper': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}
