@@ -102,23 +102,31 @@ else:
         )
     }
 
-# Redis Cache Configuration for Render
-REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d058a7q4d50c73ai7r00:6379')
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "IGNORE_EXCEPTIONS": True,  # Prevents cache issues from crashing app
-            "SOCKET_CONNECT_TIMEOUT": 5,  # seconds
-            "SOCKET_TIMEOUT": 5,  # seconds
-        },
-        "KEY_PREFIX": "varsityplug"
+# Cache Configuration - Use in-memory cache locally, Redis on Render
+if DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
     }
-}
+else:
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d058a7q4d50c73ai7r00:6379')
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,  # Prevents cache issues from crashing app
+                "SOCKET_CONNECT_TIMEOUT": 5,  # seconds
+                "SOCKET_TIMEOUT": 5,  # seconds
+            },
+            "KEY_PREFIX": "varsityplug"
+        }
+    }
 
-# Session configuration - using Redis
+# Session configuration - using cache
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
