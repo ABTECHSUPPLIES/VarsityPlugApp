@@ -6,13 +6,13 @@ import django_redis.cache
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Debug mode - Disabled in production by default
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
 # Security - Get from environment variables
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY and DEBUG:
     SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development only
-
-# Debug mode - Disabled in production by default
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Hosts configuration
 ALLOWED_HOSTS = [
@@ -84,15 +84,23 @@ TEMPLATES = [
     },
 ]
 
-# Database - Using Render PostgreSQL
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        conn_health_checks=True,
-        ssl_require=not DEBUG
-    )
-}
+# Database - Use SQLite locally, PostgreSQL on Render
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.getenv('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True
+        )
+    }
 
 # Redis Cache Configuration for Render
 REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d058a7q4d50c73ai7r00:6379')
