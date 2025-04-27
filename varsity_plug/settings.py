@@ -2,21 +2,24 @@ import os
 from pathlib import Path
 import dj_database_url
 import django_redis.cache
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Debug mode - Disabled in production by default
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+# Debug mode - Enabled by default for local development
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # Security - Get from environment variables
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY and DEBUG:
     SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development only
+elif not SECRET_KEY:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is required in production.")
 
 # Hosts configuration
 ALLOWED_HOSTS = [
-    'varsityplugapp.onrender.com', 
+    'varsityplugapp.onrender.com',
     'localhost',
     '127.0.0.1'
 ]
@@ -93,9 +96,12 @@ if DEBUG:
         }
     }
 else:
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        raise ImproperlyConfigured("DATABASE_URL environment variable is required in production.")
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.getenv('DATABASE_URL'),
+            default=DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
             ssl_require=True
