@@ -216,7 +216,7 @@ LOGGING = {
     'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',  # Specify curly-brace style for string formatting
+            'style': '{',
         },
     },
     'handlers': {
@@ -236,7 +236,7 @@ LOGGING = {
         },
         'django_ratelimit': {
             'handlers': ['console'],
-            'level': 'DEBUG' if not DEBUG else 'WARNING',
+            'level': 'DEBUG' if not DEBUG else 'WARNING',  # Increased verbosity on Render
             'propagate': False,
         },
     },
