@@ -26,8 +26,8 @@ ALLOWED_HOSTS = [
 # Security settings
 CSRF_TRUSTED_ORIGINS = [
     'https://varsityplugapp.onrender.com',
-    'http://127.0.0.1:8001',  # Added for local development on port 8001
-    'http://localhost:8001',  # Added for local development on port 8001
+    'http://127.0.0.1:8001',  # For local development on port 8001
+    'http://localhost:8001',  # For local development on port 8001
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -136,7 +136,7 @@ CACHES = {
     }
 }
 
-# Fallback to DummyCache for local development
+# Use DummyCache for local development
 if DEBUG:
     CACHES = {
         'default': {
@@ -146,11 +146,11 @@ if DEBUG:
     # Suppress django_ratelimit system checks for DummyCache
     SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Use fallback cache for rate-limiting
-RATELIMIT_CACHE = 'fallback'
+# Use Redis for rate-limiting on Render, fallback for local
+RATELIMIT_CACHE = 'default' if not DEBUG else 'default'
 RATELIMIT_CACHE_PREFIX = 'rl_'
 
-# Session configuration - Use cached_db locally to avoid corruption, cache on Render
+# Session configuration - Use cached_db locally, cache on Render
 if DEBUG:
     SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 else:
