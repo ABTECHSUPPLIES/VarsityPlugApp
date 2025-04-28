@@ -137,8 +137,13 @@ if DEBUG:
         # Suppress django_ratelimit system checks for DummyCache
         SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Session configuration - using cache
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+# Session configuration - Prefer cache, fallback to database if cache unavailable
+try:
+    import redis
+    redis.Redis.from_url(REDIS_URL).ping()
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+except (ImportError, redis.ConnectionError):
+    SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 
@@ -180,6 +185,8 @@ LOGIN_URL = '/login/'  # Customize if you have a specific login URL
 
 # Custom settings
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY and not DEBUG:
+    raise ImproperlyConfigured("OPENAI_API_KEY environment variable is required in production.")
 
 # Message tags for styling
 MESSAGE_TAGS = {
