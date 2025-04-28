@@ -121,11 +121,14 @@ else:
     }
 
 # Cache Configuration - Use Redis for Render, DummyCache for local development
-REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')  # Default to local Redis
+REDIS_URL = os.getenv('REDIS_URL')
+if not DEBUG and not REDIS_URL:
+    raise ImproperlyConfigured("REDIS_URL environment variable is required in production.")
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
+        'LOCATION': REDIS_URL or 'redis://127.0.0.1:6379/1',  # Fallback for local dev only
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'IGNORE_EXCEPTIONS': True,  # Prevents cache issues from crashing app
@@ -151,34 +154,26 @@ if DEBUG:
     # Suppress django_ratelimit system checks for DummyCache
     SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Check Redis availability for rate-limiting on Render
+# Check Redis availability for rate-limiting and sessions on Render
 RATELIMIT_CACHE = 'default'
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache' if not DEBUG else 'django.contrib.sessions.backends.cached_db'
+
 if not DEBUG:
     try:
         r = redis.Redis.from_url(REDIS_URL)
         r.ping()
-        logger.info("Redis connection successful for rate-limiting")
+        logger.info("Redis connection successful for rate-limiting and sessions")
     except (redis.ConnectionError, redis.RedisError) as e:
-        logger.error(f"Redis connection failed for rate-limiting: {str(e)}")
-        RATELIMIT_CACHE = 'fallback'  # Fallback to locmem if Redis fails
-        logger.warning("Using locmem cache for rate-limiting due to Redis failure")
+        logger.error(f"Redis connection failed: {str(e)}")
+        logger.warning("Using locmem cache for rate-limiting and cached_db for sessions due to Redis failure")
+        RATELIMIT_CACHE = 'fallback'
+        SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # Rate-limiting settings
 RATELIMIT_CACHE_PREFIX = 'rl_'
 
-# Session configuration - Use cached_db locally, cache on Render
-if DEBUG:
-    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
-else:
-    try:
-        r = redis.Redis.from_url(REDIS_URL)
-        r.ping()
-        SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-        logger.info("Using Redis for session cache")
-    except (redis.ConnectionError, redis.RedisError) as e:
-        SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
-        logger.warning(f"Using cached_db for sessions due to Redis failure: {str(e)}")
-SESSION_CACHE_ALIAS = "default"
+# Session settings
+SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 
 # Password validation
@@ -198,7 +193,10 @@ USE_TZ = True
 # Static files (WhiteNoise)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+STATICFILES_DIRS = [
+    BASE_DIR / 'helper' / 'static',  # Include helper/static for dashboard_student.js
+    BASE_DIR / 'static' if (BASE_DIR / 'static').exists() else [],
+]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
