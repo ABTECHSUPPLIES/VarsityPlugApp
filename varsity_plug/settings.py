@@ -38,6 +38,10 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
+else:
+    # Explicitly disable SSL redirect and HSTS locally to prevent HTTPS issues
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0  # Disable HSTS in development
 
 # Application definition
 INSTALLED_APPS = [
@@ -118,8 +122,13 @@ CACHES = {
             'IGNORE_EXCEPTIONS': True,  # Prevents cache issues from crashing app
             'SOCKET_CONNECT_TIMEOUT': 5,  # seconds
             'SOCKET_TIMEOUT': 5,  # seconds
+            'CONNECTION_POOL_KWARGS': {'max_connections': 100},
         },
         'KEY_PREFIX': 'varsityplug'
+    },
+    'fallback': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'varsity-plug-fallback',
     }
 }
 
@@ -137,19 +146,19 @@ if DEBUG:
         # Suppress django_ratelimit system checks for DummyCache
         SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Session configuration - Prefer cache, fallback to database if cache unavailable
+# Use fallback cache for rate-limiting
+RATELIMIT_CACHE = 'fallback'
+RATELIMIT_CACHE_PREFIX = 'rl_'
+
+# Session configuration - Prefer cache, fallback to cached_db if cache unavailable
 try:
     import redis
     redis.Redis.from_url(REDIS_URL).ping()
     SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 except (ImportError, redis.ConnectionError):
-    SESSION_ENGINE = "django.contrib.sessions.backends.db"
+    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
-
-# django-ratelimit configuration
-RATELIMIT_USE_CACHE = 'default'
-RATELIMIT_CACHE_PREFIX = 'rl_'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -204,7 +213,7 @@ LOGGING = {
     'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+            'style': '{',  # Specify curly-brace style for string formatting
         },
     },
     'handlers': {
@@ -224,7 +233,7 @@ LOGGING = {
         },
         'django_ratelimit': {
             'handlers': ['console'],
-            'level': 'WARNING',
+            'level': 'DEBUG' if not DEBUG else 'WARNING',
             'propagate': False,
         },
     },
