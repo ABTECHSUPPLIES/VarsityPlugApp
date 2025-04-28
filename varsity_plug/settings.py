@@ -1,3 +1,4 @@
+```python
 import os
 from pathlib import Path
 import dj_database_url
@@ -194,9 +195,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / 'helper' / 'static',  # Include helper/static for dashboard_student.js
-    BASE_DIR / 'static' if (BASE_DIR / 'static').exists() else [],
+    BASE_DIR / 'helper' / 'static',  # Primary static directory for helper app
 ]
+# Only include additional static directories if they exist
+if (BASE_DIR / 'static').exists():
+    STATICFILES_DIRS.append(BASE_DIR / 'static')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
@@ -209,7 +212,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Authentication
 LOGIN_REDIRECT_URL = 'helper:redirect_after_login'
 LOGOUT_REDIRECT_URL = '/'
-LOGIN_URL = '/login/'  # Customize if you have a specific login URL
+LOGIN_URL = '/login/'
 
 # Custom settings
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -262,3 +265,4 @@ LOGGING = {
 WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
+```
