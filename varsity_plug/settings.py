@@ -132,31 +132,30 @@ CACHES = {
     }
 }
 
-# Fallback to DummyCache for local development if Redis is unavailable
+# Fallback to DummyCache for local development
 if DEBUG:
-    try:
-        import redis
-        redis.Redis.from_url(REDIS_URL).ping()  # Test Redis connection
-    except (ImportError, redis.ConnectionError):
-        CACHES = {
-            'default': {
-                'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
-            }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
         }
-        # Suppress django_ratelimit system checks for DummyCache
-        SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
+    }
+    # Suppress django_ratelimit system checks for DummyCache
+    SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
 # Use fallback cache for rate-limiting
 RATELIMIT_CACHE = 'fallback'
 RATELIMIT_CACHE_PREFIX = 'rl_'
 
-# Session configuration - Prefer cache, fallback to cached_db if cache unavailable
-try:
-    import redis
-    redis.Redis.from_url(REDIS_URL).ping()
-    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-except (ImportError, redis.ConnectionError):
+# Session configuration - Use cached_db locally to avoid corruption, cache on Render
+if DEBUG:
     SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+else:
+    try:
+        import redis
+        redis.Redis.from_url(REDIS_URL).ping()
+        SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    except (ImportError, redis.ConnectionError):
+        SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 
