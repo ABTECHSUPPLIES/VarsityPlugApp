@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 import dj_database_url
-import django_redis.cache
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths
@@ -108,29 +107,35 @@ else:
         )
     }
 
-# Cache Configuration - Use in-memory cache locally, Redis on Render
+# Cache Configuration - Use Redis for Render, DummyCache for local development
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')  # Default to local Redis
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,  # Prevents cache issues from crashing app
+            'SOCKET_CONNECT_TIMEOUT': 5,  # seconds
+            'SOCKET_TIMEOUT': 5,  # seconds
+        },
+        'KEY_PREFIX': 'varsityplug'
+    }
+}
+
+# Fallback to DummyCache for local development if Redis is unavailable
 if DEBUG:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
+    try:
+        import redis
+        redis.Redis.from_url(REDIS_URL).ping()  # Test Redis connection
+    except (ImportError, redis.ConnectionError):
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+            }
         }
-    }
-else:
-    REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d058a7q4d50c73ai7r00:6379')
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_URL,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "IGNORE_EXCEPTIONS": True,  # Prevents cache issues from crashing app
-                "SOCKET_CONNECT_TIMEOUT": 5,  # seconds
-                "SOCKET_TIMEOUT": 5,  # seconds
-            },
-            "KEY_PREFIX": "varsityplug"
-        }
-    }
+        # Suppress django_ratelimit system checks for DummyCache
+        SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
 # Session configuration - using cache
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
