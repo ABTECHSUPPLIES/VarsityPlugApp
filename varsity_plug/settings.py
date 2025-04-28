@@ -2,6 +2,11 @@ import os
 from pathlib import Path
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
+import redis
+import logging
+
+# Set up logging for Redis debugging
+logger = logging.getLogger('django_ratelimit')
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -146,8 +151,19 @@ if DEBUG:
     # Suppress django_ratelimit system checks for DummyCache
     SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Use Redis for rate-limiting on Render, fallback for local
-RATELIMIT_CACHE = 'default' if not DEBUG else 'default'
+# Check Redis availability for rate-limiting on Render
+RATELIMIT_CACHE = 'default'
+if not DEBUG:
+    try:
+        r = redis.Redis.from_url(REDIS_URL)
+        r.ping()
+        logger.info("Redis connection successful for rate-limiting")
+    except (redis.ConnectionError, redis.RedisError) as e:
+        logger.error(f"Redis connection failed for rate-limiting: {str(e)}")
+        RATELIMIT_CACHE = 'fallback'  # Fallback to locmem if Redis fails
+        logger.warning("Using locmem cache for rate-limiting due to Redis failure")
+
+# Rate-limiting settings
 RATELIMIT_CACHE_PREFIX = 'rl_'
 
 # Session configuration - Use cached_db locally, cache on Render
@@ -155,11 +171,13 @@ if DEBUG:
     SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 else:
     try:
-        import redis
-        redis.Redis.from_url(REDIS_URL).ping()
+        r = redis.Redis.from_url(REDIS_URL)
+        r.ping()
         SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-    except (ImportError, redis.ConnectionError):
+        logger.info("Using Redis for session cache")
+    except (redis.ConnectionError, redis.RedisError) as e:
         SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+        logger.warning(f"Using cached_db for sessions due to Redis failure: {str(e)}")
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 
@@ -236,7 +254,7 @@ LOGGING = {
         },
         'django_ratelimit': {
             'handlers': ['console'],
-            'level': 'DEBUG' if not DEBUG else 'WARNING',  # Increased verbosity on Render
+            'level': 'DEBUG',  # Always DEBUG for rate-limiting diagnostics
             'propagate': False,
         },
     },
