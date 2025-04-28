@@ -1,4 +1,3 @@
-```python
 import os
 from pathlib import Path
 import dj_database_url
@@ -265,4 +264,3 @@ LOGGING = {
 WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
-```
