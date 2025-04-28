@@ -24,7 +24,11 @@ ALLOWED_HOSTS = [
 ]
 
 # Security settings
-CSRF_TRUSTED_ORIGINS = ['https://varsityplugapp.onrender.com']
+CSRF_TRUSTED_ORIGINS = [
+    'https://varsityplugapp.onrender.com',
+    'http://127.0.0.1:8001',  # Added for local development on port 8001
+    'http://localhost:8001',  # Added for local development on port 8001
+]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if not DEBUG:
