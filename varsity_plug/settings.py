@@ -8,27 +8,27 @@ import logging
 # Set up logging for Redis debugging
 logger = logging.getLogger('django_ratelimit')
 
-# Build paths
+# Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Debug mode - Enabled by default for local development
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# Security - Get from environment variables
+# Security - Retrieve secret key from environment variables
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY and DEBUG:
     SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development only
 elif not SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is required in production.")
 
-# Hosts configuration
+# Allowed hosts for the application
 ALLOWED_HOSTS = [
     'varsityplugapp.onrender.com',
     'localhost',
     '127.0.0.1'
 ]
 
-# Security settings
+# Security settings for CSRF and SSL
 CSRF_TRUSTED_ORIGINS = [
     'https://varsityplugapp.onrender.com',
     'http://127.0.0.1:8001',  # For local development on port 8001
@@ -48,7 +48,7 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
 else:
-    # Explicitly disable SSL redirect and HSTS locally to prevent HTTPS issues
+    # Disable SSL redirect and HSTS locally to prevent HTTPS issues
     SECURE_SSL_REDIRECT = False
     SECURE_HSTS_SECONDS = 0  # Disable HSTS in development
 
@@ -61,10 +61,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'whitenoise.runserver_nostatic',  # WhiteNoise for static files
-    'helper',  # Your custom app
+    'helper',  # Custom app
     'django_ratelimit',
 ]
 
+# Middleware configuration
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -76,14 +77,15 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# URL and WSGI configuration
 ROOT_URLCONF = 'varsity_plug.urls'
 WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 
-# Templates
+# Template configuration
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Add global templates directory
+        'DIRS': [BASE_DIR / 'templates'],  # Global templates directory
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -99,7 +101,7 @@ TEMPLATES = [
     },
 ]
 
-# Database - Use SQLite locally, PostgreSQL on Render
+# Database configuration - SQLite locally, PostgreSQL on Render
 if DEBUG:
     DATABASES = {
         'default': {
@@ -120,7 +122,7 @@ else:
         )
     }
 
-# Cache Configuration - Use Redis for Render, DummyCache for local development
+# Cache configuration - Redis for Render, DummyCache for local development
 REDIS_URL = os.getenv('REDIS_URL')
 if not DEBUG and not REDIS_URL:
     raise ImproperlyConfigured("REDIS_URL environment variable is required in production.")
@@ -128,10 +130,10 @@ if not DEBUG and not REDIS_URL:
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL or 'redis://127.0.0.1:6379/1',  # Fallback for local dev only
+        'LOCATION': REDIS_URL or 'redis://127.0.0.1:6379/1',  # Fallback for local dev
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'IGNORE_EXCEPTIONS': True,  # Prevents cache issues from crashing app
+            'IGNORE_EXCEPTIONS': True,  # Prevent cache issues from crashing app
             'SOCKET_CONNECT_TIMEOUT': 5,  # seconds
             'SOCKET_TIMEOUT': 5,  # seconds
             'CONNECTION_POOL_KWARGS': {'max_connections': 100},
@@ -193,12 +195,14 @@ USE_TZ = True
 # Static files (WhiteNoise)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'helper' / 'static',  # Primary static directory for helper app
-]
-# Only include additional static directories if they exist
-if (BASE_DIR / 'static').exists():
-    STATICFILES_DIRS.append(BASE_DIR / 'static')
+STATICFILES_DIRS = []
+# Only include static directories that exist to prevent W004 warning
+helper_static_dir = BASE_DIR / 'helper' / 'static'
+if helper_static_dir.exists():
+    STATICFILES_DIRS.append(helper_static_dir)
+global_static_dir = BASE_DIR / 'static'
+if global_static_dir.exists():
+    STATICFILES_DIRS.append(global_static_dir)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
@@ -208,12 +212,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Authentication
+# Authentication settings
 LOGIN_REDIRECT_URL = 'helper:redirect_after_login'
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/login/'
 
-# Custom settings
+# Custom settings for external APIs
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY and not DEBUG:
     raise ImproperlyConfigured("OPENAI_API_KEY environment variable is required in production.")
