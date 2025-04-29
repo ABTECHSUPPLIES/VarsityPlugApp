@@ -11,7 +11,7 @@ logger = logging.getLogger('django_ratelimit')
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Debug mode - Enabled by default for local development
+# Debug mode - Disabled in production
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # Security - Retrieve secret key from environment variables
@@ -31,8 +31,8 @@ ALLOWED_HOSTS = [
 # Security settings for CSRF and SSL
 CSRF_TRUSTED_ORIGINS = [
     'https://varsityplugapp.onrender.com',
-    'http://127.0.0.1:8001',  # For local development on port 8001
-    'http://localhost:8001',  # For local development on port 8001
+    'http://127.0.0.1:8001',
+    'http://localhost:8001',
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -48,9 +48,9 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
 else:
-    # Disable SSL redirect and HSTS locally to prevent HTTPS issues
+    # Disable SSL redirect and HSTS locally
     SECURE_SSL_REDIRECT = False
-    SECURE_HSTS_SECONDS = 0  # Disable HSTS in development
+    SECURE_HSTS_SECONDS = 0
 
 # Application definition
 INSTALLED_APPS = [
@@ -68,7 +68,7 @@ INSTALLED_APPS = [
 # Middleware configuration
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Moved up for static file serving
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Global templates directory
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,12 +130,12 @@ if not DEBUG and not REDIS_URL:
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL or 'redis://127.0.0.1:6379/1',  # Fallback for local dev
+        'LOCATION': REDIS_URL or 'redis://127.0.0.1:6379/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'IGNORE_EXCEPTIONS': True,  # Prevent cache issues from crashing app
-            'SOCKET_CONNECT_TIMEOUT': 5,  # seconds
-            'SOCKET_TIMEOUT': 5,  # seconds
+            'IGNORE_EXCEPTIONS': True,
+            'SOCKET_CONNECT_TIMEOUT': 5,
+            'SOCKET_TIMEOUT': 5,
             'CONNECTION_POOL_KWARGS': {'max_connections': 100},
         },
         'KEY_PREFIX': 'varsityplug'
@@ -146,17 +146,15 @@ CACHES = {
     }
 }
 
-# Use DummyCache for local development
 if DEBUG:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
         }
     }
-    # Suppress django_ratelimit system checks for DummyCache
     SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Check Redis availability for rate-limiting and sessions on Render
+# Check Redis availability
 RATELIMIT_CACHE = 'default'
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache' if not DEBUG else 'django.contrib.sessions.backends.cached_db'
 
@@ -167,7 +165,7 @@ if not DEBUG:
         logger.info("Redis connection successful for rate-limiting and sessions")
     except (redis.ConnectionError, redis.RedisError) as e:
         logger.error(f"Redis connection failed: {str(e)}")
-        logger.warning("Using locmem cache for rate-limiting and cached_db for sessions due to Redis failure")
+        logger.warning("Using locmem cache for rate-limiting and cached_db for sessions")
         RATELIMIT_CACHE = 'fallback'
         SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
@@ -176,7 +174,7 @@ RATELIMIT_CACHE_PREFIX = 'rl_'
 
 # Session settings
 SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
+SESSION_COOKIE_AGE = 1209600  # 2 weeks
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -195,14 +193,10 @@ USE_TZ = True
 # Static files (WhiteNoise)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = []
-# Only include static directories that exist to prevent W004 warning
-helper_static_dir = BASE_DIR / 'helper' / 'static'
-if helper_static_dir.exists():
-    STATICFILES_DIRS.append(helper_static_dir)
-global_static_dir = BASE_DIR / 'static'
-if global_static_dir.exists():
-    STATICFILES_DIRS.append(global_static_dir)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+    BASE_DIR / 'helper' / 'static',
+]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
@@ -258,13 +252,13 @@ LOGGING = {
         },
         'django_ratelimit': {
             'handlers': ['console'],
-            'level': 'DEBUG',  # Always DEBUG for rate-limiting diagnostics
+            'level': 'DEBUG',
             'propagate': False,
         },
     },
 }
 
-# WhiteNoise compression and caching
-WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
+# WhiteNoise settings
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
