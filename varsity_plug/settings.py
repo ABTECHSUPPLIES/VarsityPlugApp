@@ -17,7 +17,7 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 # Security - Retrieve secret key from environment variables
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY and DEBUG:
-    SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development only
+    SECRET_KEY = 'django-insecure-dev-key-only'  # Fallback for development
 elif not SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is required in production.")
 
@@ -31,13 +31,13 @@ ALLOWED_HOSTS = [
 # Security settings for CSRF and SSL
 CSRF_TRUSTED_ORIGINS = [
     'https://varsityplugapp.onrender.com',
-    'http://127.0.0.1:8001',
     'http://localhost:8001',
+    'http://127.0.0.1:8001',
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Production security settings
 if not DEBUG:
-    # Production security settings
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
@@ -68,7 +68,7 @@ INSTALLED_APPS = [
 # Middleware configuration
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Moved up for static file serving
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # For static file serving
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -122,7 +122,7 @@ else:
         )
     }
 
-# Cache configuration - Redis for Render, DummyCache for local development
+# Cache configuration - Redis for production, DummyCache for development
 REDIS_URL = os.getenv('REDIS_URL')
 if not DEBUG and not REDIS_URL:
     raise ImproperlyConfigured("REDIS_URL environment variable is required in production.")
@@ -154,7 +154,7 @@ if DEBUG:
     }
     SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
-# Check Redis availability
+# Check Redis availability for rate-limiting and sessions
 RATELIMIT_CACHE = 'default'
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache' if not DEBUG else 'django.contrib.sessions.backends.cached_db'
 
@@ -165,7 +165,7 @@ if not DEBUG:
         logger.info("Redis connection successful for rate-limiting and sessions")
     except (redis.ConnectionError, redis.RedisError) as e:
         logger.error(f"Redis connection failed: {str(e)}")
-        logger.warning("Using locmem cache for rate-limiting and cached_db for sessions")
+        logger.warning("Falling back to locmem cache for rate-limiting and cached_db for sessions")
         RATELIMIT_CACHE = 'fallback'
         SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
