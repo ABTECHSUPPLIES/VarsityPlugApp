@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'varsity_plug.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [BASE_DIR / 'helper' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -248,6 +248,7 @@ LOGGING = {
         'helper': {
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
         },
         'django_ratelimit': {
             'handlers': ['console'],
