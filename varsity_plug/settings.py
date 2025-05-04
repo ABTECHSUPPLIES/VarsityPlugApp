@@ -5,8 +5,8 @@ from django.core.exceptions import ImproperlyConfigured
 import redis
 import logging
 
-# Set up logging for Redis debugging
-logger = logging.getLogger('django_ratelimit')
+# Set up logging for debugging
+logger = logging.getLogger('django')
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,14 +25,14 @@ elif not SECRET_KEY:
 ALLOWED_HOSTS = [
     'varsityplugapp.onrender.com',
     'localhost',
-    '127.0.0.1'
+    '127.0.0.1',
 ]
 
 # Security settings for CSRF and SSL
 CSRF_TRUSTED_ORIGINS = [
     'https://varsityplugapp.onrender.com',
-    'http://localhost:8001',
-    'http://127.0.0.1:8001',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -125,7 +125,7 @@ else:
 # Cache configuration - Redis for production, DummyCache for development
 REDIS_URL = os.getenv('REDIS_URL')
 if not DEBUG and not REDIS_URL:
-    raise ImproperlyConfigured("REDIS_URL environment variable is required in production.")
+    logger.warning("REDIS_URL not set in production; falling back to locmem cache.")
 
 CACHES = {
     'default': {
@@ -146,7 +146,7 @@ CACHES = {
     }
 }
 
-if DEBUG:
+if DEBUG or not REDIS_URL:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
@@ -156,9 +156,9 @@ if DEBUG:
 
 # Check Redis availability for rate-limiting and sessions
 RATELIMIT_CACHE = 'default'
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache' if not DEBUG else 'django.contrib.sessions.backends.cached_db'
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache' if not DEBUG and REDIS_URL else 'django.contrib.sessions.backends.cached_db'
 
-if not DEBUG:
+if not DEBUG and REDIS_URL:
     try:
         r = redis.Redis.from_url(REDIS_URL)
         r.ping()
@@ -186,7 +186,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Johannesburg'
 USE_I18N = True
 USE_TZ = True
 
@@ -197,6 +197,9 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_MANIFEST_STRICT = False
 
 # Media files
 MEDIA_URL = '/media/'
@@ -207,21 +210,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Authentication settings
 LOGIN_REDIRECT_URL = 'helper:redirect_after_login'
-LOGOUT_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = 'helper:home'
 LOGIN_URL = '/login/'
 
 # Custom settings for external APIs
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY and not DEBUG:
-    raise ImproperlyConfigured("OPENAI_API_KEY environment variable is required in production.")
+    logger.warning("OPENAI_API_KEY not set in production; AI chat functionality will be disabled.")
 
 # Message tags for styling
+from django.contrib.messages import constants as message_constants
 MESSAGE_TAGS = {
-    10: 'debug',
-    20: 'info',
-    25: 'success',
-    30: 'warning',
-    40: 'error',
+    message_constants.DEBUG: 'debug',
+    message_constants.INFO: 'info',
+    message_constants.SUCCESS: 'success',
+    message_constants.WARNING: 'warning',
+    message_constants.ERROR: 'error',
 }
 
 # Logging configuration
@@ -244,6 +248,7 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
         },
         'helper': {
             'handlers': ['console'],
@@ -252,13 +257,8 @@ LOGGING = {
         },
         'django_ratelimit': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
     },
 }
-
-# WhiteNoise settings
-WHITENOISE_MAX_AGE = 31536000  # 1 year cache
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_MANIFEST_STRICT = False
